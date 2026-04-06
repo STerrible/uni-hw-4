@@ -1,14 +1,36 @@
-# Домашнее задание 3 — FastAPI, SQLAlchemy, Alembic
+# Домашнее задание 4 — REST API CRUD на FastAPI
 
-Проект реализует модель данных для `students.csv`, миграции Alembic и загрузку данных.
+Проект реализует CRUD-логику для модели `students.csv` с FastAPI + SQLAlchemy + Alembic.
+
+## Что реализовано
+
+- CRUD для студентов:
+  - `POST /students`
+  - `GET /students`
+  - `GET /students/{student_id}`
+  - `PUT /students/{student_id}`
+  - `DELETE /students/{student_id}`
+- CRUD для оценок студента по предметам:
+  - `POST /students/{student_id}/grades`
+  - `PUT /students/{student_id}/grades/{subject_name}`
+  - `DELETE /students/{student_id}/grades/{subject_name}`
+- Импорт данных из `students.csv`:
+  - `POST /import/csv`
+- Отчеты:
+  - студенты по факультету: `GET /report/students-by-faculty?faculty_name=...`
+  - уникальные курсы: `GET /report/unique-courses`
+  - студенты по курсу с оценкой ниже порога: `GET /report/low-scores?subject_name=...&threshold=30`
+  - средний балл по факультету: `GET /report/faculty-average?faculty_name=...`
+- Выгрузка данных в CSV (доп. задание):
+  - `GET /export/csv`
 
 ## Структура модели
 
-Данные разделены на 4 таблицы:
+Таблицы:
 
 - `faculties` — факультеты
 - `students` — студенты (`last_name`, `first_name`, `faculty_id`)
-- `subjects` — предметы (в CSV столбец `Курс` содержит название предмета)
+- `subjects` — предметы (в CSV столбец `Курс`)
 - `student_grades` — оценка студента по предмету
 
 Ограничения:
@@ -17,9 +39,7 @@
 - уникальная пара студент+предмет (`uq_student_subject`)
 - диапазон оценки `0..100` (`ck_grade_range`)
 
-Если в CSV встречается дублирующаяся пара студент+предмет, сохраняется последняя оценка.
-
-## Как запустить
+## Запуск
 
 ```bash
 python -m venv .venv
@@ -33,10 +53,4 @@ uvicorn app.main:app --reload
 ## Проверка
 
 - `GET /` — сервис запущен
-- `GET /students` — список студентов с факультетами
 - `GET /docs` — Swagger UI
-
-примеры работы:
-![img.png](img.png)
-![img_1.png](img_1.png)
-![img_2.png](img_2.png)
