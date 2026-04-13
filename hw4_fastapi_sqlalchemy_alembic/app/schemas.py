@@ -31,3 +31,18 @@ class GradeCreate(BaseModel):
 
 class GradeUpdate(BaseModel):
     grade: int = Field(ge=0, le=100)
+
+
+class UserCreate(BaseModel):
+    username: str = Field(min_length=3, max_length=100)
+    password: str = Field(min_length=6, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=100)
+    password: str = Field(min_length=6, max_length=128)
+
+
+class UserAuthOut(BaseModel):
+    user_id: int
+    username: str

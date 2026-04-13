@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user, router as auth_router
 from app.crud import DatabaseManager
 from app.database import SessionLocal
 from app.schemas import GradeCreate, GradeUpdate, StudentCreate, StudentOut, StudentUpdate
@@ -11,6 +12,7 @@ from app.schemas import GradeCreate, GradeUpdate, StudentCreate, StudentOut, Stu
 CSV_PATH = Path(__file__).resolve().parents[1] / "students.csv"
 
 app = FastAPI(title="Students API")
+app.include_router(auth_router)
 
 
 def get_db():
@@ -36,7 +38,11 @@ def root():
 
 
 @app.post("/students", response_model=StudentOut)
-def create_student(payload: StudentCreate, db: Session = Depends(get_db)):
+def create_student(
+    payload: StudentCreate,
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
     manager = DatabaseManager(db)
     try:
         student = manager.create_student(
@@ -50,13 +56,13 @@ def create_student(payload: StudentCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/students", response_model=list[StudentOut])
-def get_students(db: Session = Depends(get_db)):
+def get_students(db: Session = Depends(get_db), _=Depends(get_current_user)):
     manager = DatabaseManager(db)
     return [to_student_out(student) for student in manager.list_students()]
 
 
 @app.get("/students/{student_id}", response_model=StudentOut)
-def get_student(student_id: int, db: Session = Depends(get_db)):
+def get_student(student_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
     manager = DatabaseManager(db)
     student = manager.get_student(student_id)
     if student is None:
@@ -65,7 +71,12 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/students/{student_id}", response_model=StudentOut)
-def update_student(student_id: int, payload: StudentUpdate, db: Session = Depends(get_db)):
+def update_student(
+    student_id: int,
+    payload: StudentUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
     manager = DatabaseManager(db)
     student = manager.update_student(student_id, **payload.model_dump(exclude_none=True))
     if student is None:
@@ -74,7 +85,7 @@ def update_student(student_id: int, payload: StudentUpdate, db: Session = Depend
 
 
 @app.delete("/students/{student_id}")
-def delete_student(student_id: int, db: Session = Depends(get_db)):
+def delete_student(student_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
     manager = DatabaseManager(db)
     if not manager.delete_student(student_id):
         raise HTTPException(status_code=404, detail="Студент не найден")
@@ -82,7 +93,12 @@ def delete_student(student_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/students/{student_id}/grades")
-def create_or_update_grade(student_id: int, payload: GradeCreate, db: Session = Depends(get_db)):
+def create_or_update_grade(
+    student_id: int,
+    payload: GradeCreate,
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
     manager = DatabaseManager(db)
     grade = manager.set_student_grade(
         student_id=student_id,
@@ -95,7 +111,13 @@ def create_or_update_grade(student_id: int, payload: GradeCreate, db: Session = 
 
 
 @app.put("/students/{student_id}/grades/{subject_name}")
-def update_grade(student_id: int, subject_name: str, payload: GradeUpdate, db: Session = Depends(get_db)):
+def update_grade(
+    student_id: int,
+    subject_name: str,
+    payload: GradeUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
     manager = DatabaseManager(db)
     grade = manager.update_student_grade(student_id=student_id, subject_name=subject_name, grade=payload.grade)
     if grade is None:
@@ -104,7 +126,12 @@ def update_grade(student_id: int, subject_name: str, payload: GradeUpdate, db: S
 
 
 @app.delete("/students/{student_id}/grades/{subject_name}")
-def delete_grade(student_id: int, subject_name: str, db: Session = Depends(get_db)):
+def delete_grade(
+    student_id: int,
+    subject_name: str,
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
     manager = DatabaseManager(db)
     if not manager.delete_student_grade(student_id=student_id, subject_name=subject_name):
         raise HTTPException(status_code=404, detail="Оценка или предмет не найдены")
@@ -112,7 +139,7 @@ def delete_grade(student_id: int, subject_name: str, db: Session = Depends(get_d
 
 
 @app.post("/import/csv")
-def import_students_from_csv(db: Session = Depends(get_db)):
+def import_students_from_csv(db: Session = Depends(get_db), _=Depends(get_current_user)):
     manager = DatabaseManager(db)
     if not CSV_PATH.exists():
         raise HTTPException(status_code=404, detail=f"Файл не найден: {CSV_PATH}")
@@ -120,20 +147,29 @@ def import_students_from_csv(db: Session = Depends(get_db)):
 
 
 @app.get("/report/students-by-faculty", response_model=list[StudentOut])
-def report_students_by_faculty(faculty_name: str = Query(...), db: Session = Depends(get_db)):
+def report_students_by_faculty(
+    faculty_name: str = Query(...),
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
     manager = DatabaseManager(db)
     students = manager.students_by_faculty(faculty_name)
     return [to_student_out(student) for student in students]
 
 
 @app.get("/report/unique-courses")
-def report_unique_courses(db: Session = Depends(get_db)):
+def report_unique_courses(db: Session = Depends(get_db), _=Depends(get_current_user)):
     manager = DatabaseManager(db)
     return {"courses": manager.unique_courses()}
 
 
 @app.get("/report/low-scores")
-def report_low_scores(subject_name: str = Query(...), threshold: int = Query(30, ge=0, le=100), db: Session = Depends(get_db)):
+def report_low_scores(
+    subject_name: str = Query(...),
+    threshold: int = Query(30, ge=0, le=100),
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
     manager = DatabaseManager(db)
     rows = manager.students_by_course_with_low_grade(subject_name=subject_name, threshold=threshold)
     return [
@@ -150,7 +186,11 @@ def report_low_scores(subject_name: str = Query(...), threshold: int = Query(30,
 
 
 @app.get("/report/faculty-average")
-def report_faculty_average(faculty_name: str = Query(...), db: Session = Depends(get_db)):
+def report_faculty_average(
+    faculty_name: str = Query(...),
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
     manager = DatabaseManager(db)
     avg_grade = manager.average_grade_by_faculty(faculty_name)
     if avg_grade is None:
@@ -159,6 +199,6 @@ def report_faculty_average(faculty_name: str = Query(...), db: Session = Depends
 
 
 @app.get("/export/csv", response_class=PlainTextResponse)
-def export_csv(db: Session = Depends(get_db)):
+def export_csv(db: Session = Depends(get_db), _=Depends(get_current_user)):
     manager = DatabaseManager(db)
     return manager.export_to_csv_text()
